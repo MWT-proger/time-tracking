@@ -1,4 +1,4 @@
-module my-go-project
+module github.com/MWT-proger/time-tracking
 
 go 1.21
 
