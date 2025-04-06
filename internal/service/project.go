@@ -76,9 +76,19 @@ func (s *ProjectService) SaveData(data map[string]*domain.Project) error {
 // CreateProject - создание нового проекта
 func (s *ProjectService) CreateProject(data map[string]*domain.Project, name string) error {
 	s.Logger.Infof("Создание проекта: %s", name)
-	if _, exists := data[name]; exists {
-		return fmt.Errorf("проект уже существует")
+
+	// Проверка на пустое имя
+	if name == "" {
+		s.Logger.Warn("Попытка создать проект с пустым именем")
+		return fmt.Errorf("имя проекта не может быть пустым")
 	}
+
+	// Проверка на уникальность имени
+	if _, exists := data[name]; exists {
+		s.Logger.Warnf("Попытка создать проект с существующим именем: %s", name)
+		return fmt.Errorf("проект с именем '%s' уже существует", name)
+	}
+
 	data[name] = &domain.Project{}
 	return s.SaveData(data)
 }

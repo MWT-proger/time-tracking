@@ -135,18 +135,39 @@ func (a *App) onExit() {
 func (a *App) createProject() {
 	prompt := promptui.Prompt{
 		Label: "Название проекта",
-	}
-	name, _ := prompt.Run()
-	a.Logger.Infof("Попытка создания проекта: %s", name)
+		Validate: func(input string) error {
+			// Проверка на пустое имя
+			if input == "" {
+				return fmt.Errorf("имя проекта не может быть пустым")
+			}
 
-	err := a.ProjectService.CreateProject(a.Projects, name)
+			// Проверка на уникальность имени
+			if _, exists := a.Projects[input]; exists {
+				return fmt.Errorf("проект с именем '%s' уже существует", input)
+			}
+
+			return nil
+		},
+	}
+
+	name, err := prompt.Run()
 	if err != nil {
-		a.Logger.Errorf("Ошибка создания проекта: %v", err)
-		fmt.Println(err)
+		a.Logger.Warnf("Отмена создания проекта: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
 		return
 	}
+
+	a.Logger.Infof("Попытка создания проекта: %s", name)
+
+	err = a.ProjectService.CreateProject(a.Projects, name)
+	if err != nil {
+		a.Logger.Errorf("Ошибка создания проекта: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
 	a.Logger.Infof("Проект создан: %s", name)
-	fmt.Println("Проект создан:", name)
+	fmt.Printf("Проект '%s' успешно создан\n", name)
 }
 
 // chooseProject - выбор проекта из списка
@@ -154,7 +175,7 @@ func (a *App) chooseProject() string {
 	// Создаем список проектов с информацией о статусе
 	var activeProjects []string
 	var inactiveProjects []string
-	
+
 	for name, project := range a.Projects {
 		if project.StartTime != nil {
 			activeProjects = append(activeProjects, "▶ "+name)
@@ -162,36 +183,36 @@ func (a *App) chooseProject() string {
 			inactiveProjects = append(inactiveProjects, "  "+name)
 		}
 	}
-	
+
 	// Сортируем проекты по алфавиту
 	sort.Strings(activeProjects)
 	sort.Strings(inactiveProjects)
-	
+
 	// Объединяем списки: сначала "Назад", затем активные, затем неактивные
 	options := append([]string{"← Назад"}, activeProjects...)
 	options = append(options, inactiveProjects...)
-	
+
 	if len(options) == 1 { // Только опция "Назад"
 		fmt.Println("Нет доступных проектов")
 		return ""
 	}
-	
+
 	prompt := promptui.Select{
 		Label: "Выберите проект",
 		Items: options,
 	}
 	idx, result, err := prompt.Run()
-	
+
 	if err != nil {
 		a.Logger.Errorf("Ошибка при выборе проекта: %v", err)
 		return ""
 	}
-	
+
 	// Если выбрана опция "Назад" (индекс 0), возвращаем пустую строку
 	if idx == 0 {
 		return ""
 	}
-	
+
 	// Удаляем префикс статуса из имени проекта
 	return strings.TrimPrefix(strings.TrimPrefix(result, "▶ "), "  ")
 }
@@ -205,31 +226,31 @@ func (a *App) chooseActiveProject() string {
 			activeProjects = append(activeProjects, name)
 		}
 	}
-	
+
 	if len(activeProjects) == 0 {
 		fmt.Println("Нет активных проектов")
 		return ""
 	}
-	
+
 	// Добавляем опцию "Назад" в начало списка
 	options := append([]string{"← Назад"}, activeProjects...)
-	
+
 	prompt := promptui.Select{
 		Label: "Выберите активный проект",
 		Items: options,
 	}
 	idx, result, err := prompt.Run()
-	
+
 	if err != nil {
 		a.Logger.Errorf("Ошибка при выборе проекта: %v", err)
 		return ""
 	}
-	
+
 	// Если выбрана опция "Назад" (индекс 0), возвращаем пустую строку
 	if idx == 0 {
 		return ""
 	}
-	
+
 	return result
 }
 
