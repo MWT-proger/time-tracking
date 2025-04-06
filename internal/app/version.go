@@ -1,7 +1,7 @@
 package app
 
 // Version - текущая версия приложения
-const Version = "0.1.0"
+const Version = "0.9.0"
 
 // BuildDate - дата сборки приложения
 var BuildDate = "не указана"
