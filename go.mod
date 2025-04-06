@@ -2,7 +2,9 @@ module github.com/MWT-proger/time-tracking
 
 go 1.21
 
-require github.com/manifoldco/promptui v0.9.0
+require (
+	github.com/manifoldco/promptui v0.9.0
+)
 
 require (
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
