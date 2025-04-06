@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -149,18 +151,86 @@ func (a *App) createProject() {
 
 // chooseProject - выбор проекта из списка
 func (a *App) chooseProject() string {
-	names := a.ProjectService.GetProjectNames(a.Projects)
-	if len(names) == 0 {
+	// Создаем список проектов с информацией о статусе
+	var activeProjects []string
+	var inactiveProjects []string
+	
+	for name, project := range a.Projects {
+		if project.StartTime != nil {
+			activeProjects = append(activeProjects, "▶ "+name)
+		} else {
+			inactiveProjects = append(inactiveProjects, "  "+name)
+		}
+	}
+	
+	// Сортируем проекты по алфавиту
+	sort.Strings(activeProjects)
+	sort.Strings(inactiveProjects)
+	
+	// Объединяем списки: сначала "Назад", затем активные, затем неактивные
+	options := append([]string{"← Назад"}, activeProjects...)
+	options = append(options, inactiveProjects...)
+	
+	if len(options) == 1 { // Только опция "Назад"
 		fmt.Println("Нет доступных проектов")
 		return ""
 	}
-
+	
 	prompt := promptui.Select{
 		Label: "Выберите проект",
-		Items: names,
+		Items: options,
 	}
-	_, project, _ := prompt.Run()
-	return project
+	idx, result, err := prompt.Run()
+	
+	if err != nil {
+		a.Logger.Errorf("Ошибка при выборе проекта: %v", err)
+		return ""
+	}
+	
+	// Если выбрана опция "Назад" (индекс 0), возвращаем пустую строку
+	if idx == 0 {
+		return ""
+	}
+	
+	// Удаляем префикс статуса из имени проекта
+	return strings.TrimPrefix(strings.TrimPrefix(result, "▶ "), "  ")
+}
+
+// chooseActiveProject - выбор активного проекта из списка
+func (a *App) chooseActiveProject() string {
+	// Собираем имена активных проектов
+	var activeProjects []string
+	for name, project := range a.Projects {
+		if project.StartTime != nil {
+			activeProjects = append(activeProjects, name)
+		}
+	}
+	
+	if len(activeProjects) == 0 {
+		fmt.Println("Нет активных проектов")
+		return ""
+	}
+	
+	// Добавляем опцию "Назад" в начало списка
+	options := append([]string{"← Назад"}, activeProjects...)
+	
+	prompt := promptui.Select{
+		Label: "Выберите активный проект",
+		Items: options,
+	}
+	idx, result, err := prompt.Run()
+	
+	if err != nil {
+		a.Logger.Errorf("Ошибка при выборе проекта: %v", err)
+		return ""
+	}
+	
+	// Если выбрана опция "Назад" (индекс 0), возвращаем пустую строку
+	if idx == 0 {
+		return ""
+	}
+	
+	return result
 }
 
 // startTracking - начало отслеживания времени
@@ -194,7 +264,7 @@ func (a *App) startTracking() {
 
 // stopTracking - остановка отслеживания времени
 func (a *App) stopTracking() {
-	projectName := a.chooseProject()
+	projectName := a.chooseActiveProject()
 	if projectName == "" {
 		a.Logger.Warn("Отмена остановки отслеживания: проект не выбран")
 		return
