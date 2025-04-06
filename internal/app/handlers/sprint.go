@@ -186,13 +186,13 @@ func (h *Handlers) ViewSprintsForProject(projectName string) {
 			total += entry.TimeSpent
 		}
 
-		fmt.Printf("  Общее время: %v сек\n", total)
+		fmt.Printf("  Общее время: %s\n", h.FormatTimeSpent(total))
 
 		// Вывод записей спринта
 		if len(sprint.Entries) > 0 {
 			fmt.Println("  Записи:")
 			for _, entry := range sprint.Entries {
-				fmt.Printf("    %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+				fmt.Printf("    %s - %s: %s\n", entry.Date, h.FormatTimeSpent(entry.TimeSpent), entry.Description)
 			}
 		}
 	}

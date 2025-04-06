@@ -140,7 +140,7 @@ func (h *Handlers) ChooseProject() string {
 		} else if project.StartTime != nil {
 			activeProjects = append(activeProjects, "▶ "+name)
 		} else {
-			inactiveProjects = append(inactiveProjects, "  "+name)
+			inactiveProjects = append(inactiveProjects, "⏹ "+name)
 		}
 	}
 
@@ -189,7 +189,7 @@ func (h *Handlers) ChooseProject() string {
 	}
 
 	// Удаляем префикс статуса из имени проекта
-	projectName := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(result, "▶ "), "  "), "📦 ")
+	projectName := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(result, "▶ "), "⏹ "), "📦 ")
 	h.Logger.Debugf("Выбран проект: %s", projectName)
 
 	return projectName
@@ -280,7 +280,7 @@ func (h *Handlers) ShowProjectStatistics(projectName string) {
 		totalProject += entry.TimeSpent
 	}
 
-	fmt.Printf("  Общее время: %v сек\n", totalProject)
+	fmt.Printf("  Общее время: %s\n", h.FormatTimeSpent(totalProject))
 
 	// Если есть спринты, показываем статистику по ним
 	if project.Sprints != nil && len(project.Sprints) > 0 {
@@ -298,13 +298,13 @@ func (h *Handlers) ShowProjectStatistics(projectName string) {
 				status = " (Активный)"
 			}
 
-			fmt.Printf("    %s%s: %v сек\n", sprint.Name, status, totalSprint)
+			fmt.Printf("    %s%s: %s\n", sprint.Name, status, h.FormatTimeSpent(totalSprint))
 		}
 	}
 
 	// Показываем записи проекта
 	fmt.Println("  Записи:")
 	for _, entry := range project.Entries {
-		fmt.Printf("    %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+		fmt.Printf("    %s - %s: %s\n", entry.Date, h.FormatTimeSpent(entry.TimeSpent), entry.Description)
 	}
 }

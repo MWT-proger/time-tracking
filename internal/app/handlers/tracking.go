@@ -73,8 +73,32 @@ func (h *Handlers) StopTrackingForProject(projectName string) {
 	}
 
 	h.Logger.Infof("Отслеживание остановлено для проекта %s. Время: %v", projectName, elapsed)
-	fmt.Printf("Отслеживание остановлено для проекта %s. Время: %v\n", projectName, elapsed)
+	fmt.Printf("Отслеживание остановлено для проекта %s. Время: %s\n", projectName, h.FormatDuration(elapsed))
 	h.SystrayHandler.SetTracking("", nil)
+}
+
+// FormatTimeSpent - форматирует время в виде "Xh Ym Zs"
+func (h *Handlers) FormatTimeSpent(seconds int) string {
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+
+	result := ""
+	if hours > 0 {
+		result += fmt.Sprintf("%dh ", hours)
+	}
+	if minutes > 0 || hours > 0 {
+		result += fmt.Sprintf("%dm ", minutes)
+	}
+	result += fmt.Sprintf("%ds", secs)
+
+	return result
+}
+
+// FormatDuration - форматирует time.Duration в виде "Xh Ym Zs"
+func (h *Handlers) FormatDuration(duration time.Duration) string {
+	seconds := int(duration.Seconds())
+	return h.FormatTimeSpent(seconds)
 }
 
 // ShowSummary - вывод сводки по проектам
@@ -114,7 +138,7 @@ func (h *Handlers) ShowSummary() {
 				totalProject += entry.TimeSpent
 			}
 
-			fmt.Printf("  Общее время: %v сек\n", totalProject)
+			fmt.Printf("  Общее время: %s\n", h.FormatTimeSpent(totalProject))
 
 			// Если есть спринты, показываем статистику по ним
 			if project.Sprints != nil && len(project.Sprints) > 0 {
@@ -132,7 +156,7 @@ func (h *Handlers) ShowSummary() {
 						status = " (Активный)"
 					}
 
-					fmt.Printf("    %s%s: %v сек\n", sprint.Name, status, totalSprint)
+					fmt.Printf("    %s%s: %s\n", sprint.Name, status, h.FormatTimeSpent(totalSprint))
 				}
 			}
 
@@ -140,7 +164,7 @@ func (h *Handlers) ShowSummary() {
 			if len(project.Entries) > 0 {
 				fmt.Println("  Записи:")
 				for _, entry := range project.Entries {
-					fmt.Printf("    %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+					fmt.Printf("    %s - %s: %s\n", entry.Date, h.FormatTimeSpent(entry.TimeSpent), entry.Description)
 				}
 			}
 		}
@@ -156,7 +180,7 @@ func (h *Handlers) ShowSummary() {
 				totalProject += entry.TimeSpent
 			}
 
-			fmt.Printf("  %s: %v сек\n", name, totalProject)
+			fmt.Printf("  %s: %s\n", name, h.FormatTimeSpent(totalProject))
 		}
 	}
 }
