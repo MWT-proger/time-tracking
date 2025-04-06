@@ -2,54 +2,92 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/MWT-proger/time-tracking/internal/domain"
+	"github.com/MWT-proger/time-tracking/pkg/logger"
 )
 
+// ProjectService - сервис для работы с проектами
 type ProjectService struct {
-	dataFile string
+	DataFile string
+	Logger   logger.Logger
 }
 
-func NewProjectService() *ProjectService {
+// NewProjectService - создание нового сервиса проектов
+func NewProjectService(log logger.Logger, dataFile string) *ProjectService {
 	return &ProjectService{
-		dataFile: filepath.Join(os.Getenv("HOME"), "учет_времени.json"),
+		DataFile: dataFile,
+		Logger:   log,
 	}
 }
 
-func (s *ProjectService) CreateProject(name string) {
-	data, _ := s.loadData()
-	if _, exists := data[name]; exists {
-		return
-	}
-	data[name] = &domain.Project{}
-	s.saveData(data)
-}
-
-func (s *ProjectService) GetProjects() map[string]*domain.Project {
-	data, _ := s.loadData()
-	return data
-}
-
-func (s *ProjectService) loadData() (map[string]*domain.Project, error) {
+// LoadData - загрузка данных из файла
+func (s *ProjectService) LoadData() (map[string]*domain.Project, error) {
+	s.Logger.Debug("Загрузка данных из файла:", s.DataFile)
 	data := make(map[string]*domain.Project)
-	file, err := os.Open(s.dataFile)
-	if err != nil && !os.IsNotExist(err) {
+
+	// Создаем директорию для файла данных, если она не существует
+	dir := filepath.Dir(s.DataFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		s.Logger.Errorf("Ошибка создания директории для данных: %v", err)
 		return nil, err
+	}
+
+	file, err := os.Open(s.DataFile)
+	if err != nil && !os.IsNotExist(err) {
+		s.Logger.Errorf("Ошибка открытия файла данных: %v", err)
+		return nil, err
+	}
+	if os.IsNotExist(err) {
+		s.Logger.Info("Файл данных не существует, будет создан новый")
+		return data, nil
 	}
 	defer file.Close()
 	if err := json.NewDecoder(file).Decode(&data); err != nil {
+		s.Logger.Errorf("Ошибка декодирования данных: %v", err)
 		return data, err
 	}
 	return data, nil
 }
 
-func (s *ProjectService) saveData(data map[string]*domain.Project) error {
-	file, err := os.Create(s.dataFile)
+// SaveData - сохранение данных в файл
+func (s *ProjectService) SaveData(data map[string]*domain.Project) error {
+	s.Logger.Debug("Сохранение данных в файл:", s.DataFile)
+
+	// Создаем директорию для файла данных, если она не существует
+	dir := filepath.Dir(s.DataFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		s.Logger.Errorf("Ошибка создания директории для данных: %v", err)
+		return err
+	}
+
+	file, err := os.Create(s.DataFile)
 	if err != nil {
+		s.Logger.Errorf("Ошибка создания файла данных: %v", err)
 		return err
 	}
 	defer file.Close()
 	return json.NewEncoder(file).Encode(data)
+}
+
+// CreateProject - создание нового проекта
+func (s *ProjectService) CreateProject(data map[string]*domain.Project, name string) error {
+	s.Logger.Infof("Создание проекта: %s", name)
+	if _, exists := data[name]; exists {
+		return fmt.Errorf("проект уже существует")
+	}
+	data[name] = &domain.Project{}
+	return s.SaveData(data)
+}
+
+// GetProjectNames - получение списка имен проектов
+func (s *ProjectService) GetProjectNames(data map[string]*domain.Project) []string {
+	names := []string{}
+	for name := range data {
+		names = append(names, name)
+	}
+	return names
 }

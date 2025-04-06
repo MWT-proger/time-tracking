@@ -7,61 +7,50 @@ import (
 	"github.com/getlantern/systray"
 )
 
-var (
-	trackedProject   string
-	trackingStart    *time.Time
-	updateTrayTicker *time.Ticker
-)
-
-func onReady() {
-	systray.SetIcon(nil)
-	systray.SetTitle("Таймер")
-	systray.SetTooltip("Учет времени")
-
-	startItem := systray.AddMenuItem("Начать отслеживание", "Начать отслеживание времени")
-	stopItem := systray.AddMenuItem("Остановить отслеживание", "Остановить отслеживание времени")
-	exitItem := systray.AddMenuItem("Выход", "Выход из приложения")
-
-	go func() {
-		for {
-			select {
-			case <-startItem.ClickedCh:
-				// Логика для начала отслеживания
-			case <-stopItem.ClickedCh:
-				// Логика для остановки отслеживания
-			case <-exitItem.ClickedCh:
-				systray.Quit()
-				return
-			}
-		}
-	}()
+// SystrayHandler - обработчик системного трея
+type SystrayHandler struct {
+	TrackedProject   string
+	TrackingStart    *time.Time
+	UpdateTrayTicker *time.Ticker
 }
 
-func onExit() {
-	if updateTrayTicker != nil {
-		updateTrayTicker.Stop()
-	}
+// NewSystrayHandler - создание нового обработчика системного трея
+func NewSystrayHandler() *SystrayHandler {
+	return &SystrayHandler{}
 }
 
-func startTrayTicker() {
-	if updateTrayTicker != nil {
+// StartTrayTicker - запуск тикера обновления системного трея
+func (h *SystrayHandler) StartTrayTicker() {
+	if h.UpdateTrayTicker != nil {
 		return
 	}
-	updateTrayTicker = time.NewTicker(1 * time.Second)
+	h.UpdateTrayTicker = time.NewTicker(1 * time.Second)
 	go func() {
-		for range updateTrayTicker.C {
-			if trackingStart != nil {
-				elapsed := time.Since(*trackingStart)
-				systray.SetTitle(fmt.Sprintf("%s: %v", trackedProject, elapsed.Round(time.Second)))
+		for range h.UpdateTrayTicker.C {
+			if h.TrackingStart != nil {
+				elapsed := time.Since(*h.TrackingStart)
+				systray.SetTitle(fmt.Sprintf("%s: %v", h.TrackedProject, elapsed.Round(time.Second)))
 			}
 		}
 	}()
 }
 
-func stopTrayTicker() {
-	if updateTrayTicker != nil {
-		updateTrayTicker.Stop()
-		updateTrayTicker = nil
+// StopTrayTicker - остановка тикера обновления системного трея
+func (h *SystrayHandler) StopTrayTicker() {
+	if h.UpdateTrayTicker != nil {
+		h.UpdateTrayTicker.Stop()
+		h.UpdateTrayTicker = nil
 	}
 	systray.SetTitle("Таймер")
+}
+
+// SetTracking - установка отслеживаемого проекта
+func (h *SystrayHandler) SetTracking(project string, start *time.Time) {
+	h.TrackedProject = project
+	h.TrackingStart = start
+	if start != nil {
+		h.StartTrayTicker()
+	} else {
+		h.StopTrayTicker()
+	}
 }
