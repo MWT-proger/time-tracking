@@ -1,9 +1,13 @@
 package systray
 
-// GetIcon - получение иконки для системного трея
+import (
+	"embed"
+)
+
+//go:embed assets/icons/clock.png
+var iconFS embed.FS
+
+// GetIcon - получение иконки из встроенных ресурсов
 func GetIcon() ([]byte, error) {
-	// Встроенная иконка в формате PNG
-	return []byte{
-		// ... байты иконки ...
-	}, nil
+	return iconFS.ReadFile("assets/icons/clock.png")
 }

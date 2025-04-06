@@ -3,21 +3,24 @@ package app
 import (
 	"fmt"
 
-	"github.com/getlantern/systray"
-	"github.com/manifoldco/promptui"
-
 	"github.com/MWT-proger/time-tracking/internal/app/handlers"
+	"github.com/MWT-proger/time-tracking/internal/app/systray"
 	"github.com/MWT-proger/time-tracking/internal/domain"
 	"github.com/MWT-proger/time-tracking/internal/service"
 	"github.com/MWT-proger/time-tracking/pkg/config"
 	"github.com/MWT-proger/time-tracking/pkg/logger"
 )
 
+type SystrayHandler interface {
+	Run()
+	Quit()
+}
+
 // App - основной класс приложения
 type App struct {
 	ProjectService  *service.ProjectService
 	TrackingService *service.TrackingService
-	SystrayHandler  *SystrayHandler
+	SystrayHandler  SystrayHandler
 	Projects        map[string]*domain.Project
 	Logger          logger.Logger
 	Config          *config.Config
@@ -28,7 +31,7 @@ type App struct {
 func NewApp(cfg *config.Config, log logger.Logger) *App {
 	projectService := service.NewProjectService(log, cfg.DataFile)
 	trackingService := service.NewTrackingService(projectService, log, cfg)
-	systrayHandler := NewSystrayHandler()
+	systrayHandler := systray.NewSystrayHandler(log)
 
 	app := &App{
 		ProjectService:  projectService,
@@ -38,8 +41,8 @@ func NewApp(cfg *config.Config, log logger.Logger) *App {
 		Config:          cfg,
 	}
 
-	// Инициализируем обработчики после создания App
-	app.Handlers = handlers.NewHandlers(app.ProjectService, app.TrackingService, app.SystrayHandler, app.Logger, app.Config)
+	// Инициализируем обработчики
+	app.Handlers = handlers.NewHandlers(app.ProjectService, app.TrackingService, systrayHandler, app.Logger, app.Config)
 
 	return app
 }
@@ -74,73 +77,8 @@ func (a *App) Run() {
 			}
 		}()
 
-		systray.Run(a.onReady, a.onExit)
+		a.SystrayHandler.Run()
 	}()
-
-	for {
-		prompt := promptui.Select{
-			Label: "Главное меню",
-			Items: []string{
-				"Выбрать проект",
-				"Создать проект",
-				"Сводка по всем проектам",
-				"Выход",
-			},
-		}
-		_, cmd, _ := prompt.Run()
-
-		switch cmd {
-		case "Выбрать проект":
-			a.Handlers.SelectAndManageProject()
-		case "Создать проект":
-			a.Handlers.CreateProject()
-		case "Сводка по всем проектам":
-			a.Handlers.ShowSummary()
-		case "Выход":
-			a.ProjectService.SaveData(a.Projects)
-			systray.Quit()
-			return
-		}
-	}
-}
-
-// onReady - обработчик готовности системного трея
-func (a *App) onReady() {
-	// Загружаем иконку из встроенных ресурсов
-	iconData, err := GetIcon()
-	if err != nil {
-		// Если не удалось загрузить иконку, используем встроенную иконку
-		a.Logger.Warnf("Не удалось загрузить иконку: %v, используется встроенная иконка", err)
-	}
-
-	systray.SetIcon(iconData)
-	systray.SetTitle("Таймер")
-	systray.SetTooltip("Учет времени")
-
-	// Создаем пункты меню
-	mStart := systray.AddMenuItem("Начать отслеживание", "Начать отслеживание времени")
-	mStop := systray.AddMenuItem("Остановить отслеживание", "Остановить отслеживание времени")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Выход", "Выход из приложения")
-
-	// Обработка событий меню
-	go func() {
-		for {
-			select {
-			case <-mStart.ClickedCh:
-				a.Handlers.StartTracking()
-			case <-mStop.ClickedCh:
-				a.Handlers.StopTracking()
-			case <-mQuit.ClickedCh:
-				a.Logger.Info("Выход из приложения через системный трей")
-				systray.Quit()
-				return
-			}
-		}
-	}()
-}
-
-// onExit - обработчик выхода из системного трея
-func (a *App) onExit() {
-	// Логика при выходе
+	a.Handlers.GeneralMenu()
+	a.SystrayHandler.Quit()
 }

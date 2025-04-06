@@ -1,7 +1,8 @@
 package handlers
 
 import (
-	"github.com/MWT-proger/time-tracking/internal/app/systray"
+	"time"
+
 	"github.com/MWT-proger/time-tracking/internal/domain"
 	"github.com/MWT-proger/time-tracking/internal/service"
 	"github.com/MWT-proger/time-tracking/pkg/config"
@@ -9,11 +10,16 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
+type SystrayHandler interface {
+	SetTracking(project string, start *time.Time)
+	StopTrayTicker()
+}
+
 // Handlers - структура для обработчиков приложения
 type Handlers struct {
 	ProjectService  *service.ProjectService
 	TrackingService *service.TrackingService
-	SystrayHandler  systray.Handler
+	SystrayHandler  SystrayHandler
 	Logger          logger.Logger
 	Config          *config.Config
 	Projects        map[string]*domain.Project
@@ -23,7 +29,7 @@ type Handlers struct {
 func NewHandlers(
 	projectService *service.ProjectService,
 	trackingService *service.TrackingService,
-	systrayHandler systray.Handler,
+	systrayHandler SystrayHandler,
 	logger logger.Logger,
 	config *config.Config,
 ) *Handlers {

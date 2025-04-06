@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Time Tracker in Terminal",
+            "type": "shell",
+            "command": "go run -ldflags \"-X github.com/MWT-proger/time-tracking/internal/app.BuildDate=$(date -u +%Y-%m-%d) -X github.com/MWT-proger/time-tracking/internal/app.GitCommit=$(git rev-parse --short HEAD)\" ./cmd/time-tracker -config ./config.json",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Build and Run Time Tracker",
+            "type": "shell",
+            "command": "go build -ldflags \"-X github.com/MWT-proger/time-tracking/internal/app.BuildDate=$(date -u +%Y-%m-%d) -X github.com/MWT-proger/time-tracking/internal/app.GitCommit=$(git rev-parse --short HEAD)\" -o time-tracker ./cmd/time-tracker && ./time-tracker -config ./config.json",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}

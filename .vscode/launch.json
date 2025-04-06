@@ -1,0 +1,62 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Time Tracker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/time-tracker",
+            "args": [
+                "-data",
+                "./data.json",
+                "-notify-time",
+                "5"
+            ],
+            "env": {
+                "BUILD_DATE": "$(date -u +%Y-%m-%d)",
+                "GIT_COMMIT": "$(git rev-parse --short HEAD)"
+            },
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch with Debug Logs",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/time-tracker",
+            "args": [
+                "-data",
+                "./data.json",
+                "-notify-time",
+                "5",
+                "-log-level",
+                "debug"
+            ],
+            "env": {
+                "BUILD_DATE": "$(date -u +%Y-%m-%d)",
+                "GIT_COMMIT": "$(git rev-parse --short HEAD)"
+            },
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch in External Terminal",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/time-tracker",
+            "args": [
+                "-data",
+                "./data.json",
+                "-notify-time",
+                "5"
+            ],
+            "env": {
+                "BUILD_DATE": "$(date -u +%Y-%m-%d)",
+                "GIT_COMMIT": "$(git rev-parse --short HEAD)"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal"
+        }
+    ]
+}
