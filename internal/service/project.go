@@ -97,11 +97,19 @@ func (s *ProjectService) CreateProject(data map[string]*domain.Project, name str
 }
 
 // GetProjectNames - получение списка имен проектов
-func (s *ProjectService) GetProjectNames(data map[string]*domain.Project) []string {
-	names := []string{}
-	for name := range data {
-		names = append(names, name)
+func (s *ProjectService) GetProjectNames(data map[string]*domain.Project, includeArchived bool) []string {
+	s.Logger.Debug("Получение списка имен проектов")
+
+	names := make([]string, 0, len(data))
+
+	for name, project := range data {
+		if !project.Archived || includeArchived {
+			names = append(names, name)
+		}
 	}
+
+	sort.Strings(names)
+
 	return names
 }
 
@@ -204,6 +212,47 @@ func (s *ProjectService) SetActiveSprint(data map[string]*domain.Project, projec
 	// Активируем выбранный спринт
 	project.Sprints[sprintID].IsActive = true
 	project.ActiveSprint = sprintID
+
+	return s.SaveData(data)
+}
+
+// ArchiveProject - архивирование проекта
+func (s *ProjectService) ArchiveProject(data map[string]*domain.Project, name string) error {
+	s.Logger.Infof("Архивирование проекта: %s", name)
+
+	project, exists := data[name]
+	if !exists {
+		s.Logger.Warnf("Попытка архивировать несуществующий проект: %s", name)
+		return fmt.Errorf("проект '%s' не существует", name)
+	}
+
+	// Проверяем, не запущено ли отслеживание для проекта
+	if project.StartTime != nil {
+		s.Logger.Warnf("Попытка архивировать проект с запущенным отслеживанием: %s", name)
+		return fmt.Errorf("невозможно архивировать проект с запущенным отслеживанием")
+	}
+
+	project.Archived = true
+
+	return s.SaveData(data)
+}
+
+// RestoreProject - восстановление проекта из архива
+func (s *ProjectService) RestoreProject(data map[string]*domain.Project, name string) error {
+	s.Logger.Infof("Восстановление проекта из архива: %s", name)
+
+	project, exists := data[name]
+	if !exists {
+		s.Logger.Warnf("Попытка восстановить несуществующий проект: %s", name)
+		return fmt.Errorf("проект '%s' не существует", name)
+	}
+
+	if !project.Archived {
+		s.Logger.Warnf("Попытка восстановить неархивированный проект: %s", name)
+		return fmt.Errorf("проект '%s' не находится в архиве", name)
+	}
+
+	project.Archived = false
 
 	return s.SaveData(data)
 }

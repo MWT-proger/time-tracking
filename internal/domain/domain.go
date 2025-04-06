@@ -26,6 +26,7 @@ type Project struct {
 	Entries      []TimeEntry        `json:"entries,omitempty"`
 	Sprints      map[string]*Sprint `json:"sprints,omitempty"`
 	ActiveSprint string             `json:"active_sprint,omitempty"`
+	Archived     bool               `json:"archived,omitempty"`
 }
 
 // Entry - структура записи времени
