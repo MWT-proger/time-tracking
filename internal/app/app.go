@@ -69,7 +69,14 @@ func (a *App) Run() {
 	for {
 		prompt := promptui.Select{
 			Label: "Выберите команду",
-			Items: []string{"Создать проект", "Начать отслеживание", "Остановить отслеживание", "Сводка", "Выход"},
+			Items: []string{
+				"Создать проект",
+				"Начать отслеживание",
+				"Остановить отслеживание",
+				"Управление спринтами",
+				"Сводка",
+				"Выход",
+			},
 		}
 		_, cmd, _ := prompt.Run()
 
@@ -80,6 +87,8 @@ func (a *App) Run() {
 			a.startTracking()
 		case "Остановить отслеживание":
 			a.stopTracking()
+		case "Управление спринтами":
+			a.manageSprints()
 		case "Сводка":
 			a.showSummary()
 		case "Выход":
@@ -309,6 +318,215 @@ func (a *App) stopTracking() {
 	a.SystrayHandler.SetTracking("", nil)
 }
 
+// manageSprints - управление спринтами проектов
+func (a *App) manageSprints() {
+	for {
+		prompt := promptui.Select{
+			Label: "Управление спринтами",
+			Items: []string{
+				"Создать спринт",
+				"Выбрать активный спринт",
+				"Просмотреть спринты проекта",
+				"Назад",
+			},
+		}
+		_, cmd, _ := prompt.Run()
+
+		switch cmd {
+		case "Создать спринт":
+			a.createSprint()
+		case "Выбрать активный спринт":
+			a.setActiveSprint()
+		case "Просмотреть спринты проекта":
+			a.viewProjectSprints()
+		case "Назад":
+			return
+		}
+	}
+}
+
+// createSprint - создание нового спринта проекта
+func (a *App) createSprint() {
+	// Выбор проекта
+	projectName := a.chooseProject()
+	if projectName == "" {
+		return
+	}
+
+	// Ввод имени спринта
+	namePrompt := promptui.Prompt{
+		Label: "Название спринта",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("имя спринта не может быть пустым")
+			}
+
+			// Проверка на уникальность имени спринта
+			project := a.Projects[projectName]
+			if project.Sprints != nil {
+				for _, sprint := range project.Sprints {
+					if sprint.Name == input {
+						return fmt.Errorf("спринт с именем '%s' уже существует", input)
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+
+	sprintName, err := namePrompt.Run()
+	if err != nil {
+		a.Logger.Warnf("Отмена создания спринта: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
+	// Ввод описания спринта
+	descPrompt := promptui.Prompt{
+		Label: "Описание спринта",
+	}
+
+	description, _ := descPrompt.Run()
+
+	// Создание спринта
+	err = a.ProjectService.CreateSprint(a.Projects, projectName, sprintName, description)
+	if err != nil {
+		a.Logger.Errorf("Ошибка создания спринта: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
+	a.Logger.Infof("Спринт '%s' создан для проекта '%s'", sprintName, projectName)
+	fmt.Printf("Спринт '%s' успешно создан для проекта '%s'\n", sprintName, projectName)
+}
+
+// setActiveSprint - установка активного спринта для проекта
+func (a *App) setActiveSprint() {
+	// Выбор проекта
+	projectName := a.chooseProject()
+	if projectName == "" {
+		return
+	}
+
+	project := a.Projects[projectName]
+
+	// Проверка наличия спринтов
+	if project.Sprints == nil || len(project.Sprints) == 0 {
+		fmt.Printf("У проекта '%s' нет спринтов\n", projectName)
+		return
+	}
+
+	// Получение списка спринтов
+	sprints, err := a.ProjectService.GetProjectSprints(a.Projects, projectName)
+	if err != nil {
+		a.Logger.Errorf("Ошибка получения спринтов: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
+	// Создание списка для выбора
+	var options []string
+	options = append(options, "← Назад")
+
+	for _, sprint := range sprints {
+		prefix := "  "
+		if sprint.IsActive {
+			prefix = "▶ "
+		}
+		options = append(options, prefix+sprint.Name)
+	}
+
+	// Выбор спринта
+	prompt := promptui.Select{
+		Label: "Выберите спринт",
+		Items: options,
+	}
+
+	idx, result, err := prompt.Run()
+	if err != nil || idx == 0 {
+		return
+	}
+
+	// Получение ID выбранного спринта
+	selectedName := strings.TrimPrefix(strings.TrimPrefix(result, "▶ "), "  ")
+	var selectedID string
+
+	for _, sprint := range sprints {
+		if sprint.Name == selectedName {
+			selectedID = sprint.ID
+			break
+		}
+	}
+
+	// Установка активного спринта
+	err = a.ProjectService.SetActiveSprint(a.Projects, projectName, selectedID)
+	if err != nil {
+		a.Logger.Errorf("Ошибка установки активного спринта: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
+	a.Logger.Infof("Спринт '%s' установлен как активный для проекта '%s'", selectedName, projectName)
+	fmt.Printf("Спринт '%s' установлен как активный для проекта '%s'\n", selectedName, projectName)
+}
+
+// viewProjectSprints - просмотр спринтов проекта
+func (a *App) viewProjectSprints() {
+	// Выбор проекта
+	projectName := a.chooseProject()
+	if projectName == "" {
+		return
+	}
+
+	project := a.Projects[projectName]
+
+	// Проверка наличия спринтов
+	if project.Sprints == nil || len(project.Sprints) == 0 {
+		fmt.Printf("У проекта '%s' нет спринтов\n", projectName)
+		return
+	}
+
+	// Получение списка спринтов
+	sprints, err := a.ProjectService.GetProjectSprints(a.Projects, projectName)
+	if err != nil {
+		a.Logger.Errorf("Ошибка получения спринтов: %v", err)
+		fmt.Printf("Ошибка: %v\n", err)
+		return
+	}
+
+	fmt.Printf("\nСпринты проекта '%s':\n", projectName)
+
+	for _, sprint := range sprints {
+		status := "Неактивный"
+		if sprint.IsActive {
+			status = "Активный"
+		}
+
+		fmt.Printf("\n%s - %s\n", sprint.Name, status)
+		if sprint.Description != "" {
+			fmt.Printf("  Описание: %s\n", sprint.Description)
+		}
+		fmt.Printf("  Дата начала: %s\n", sprint.StartDate)
+
+		// Подсчет времени по спринту
+		var total int
+		for _, entry := range sprint.Entries {
+			total += entry.TimeSpent
+		}
+
+		fmt.Printf("  Общее время: %v сек\n", total)
+
+		// Вывод записей спринта
+		if len(sprint.Entries) > 0 {
+			fmt.Println("  Записи:")
+			for _, entry := range sprint.Entries {
+				fmt.Printf("    %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+			}
+		}
+	}
+}
+
 // showSummary - вывод сводки по проектам
 func (a *App) showSummary() {
 	if len(a.Projects) == 0 {
@@ -318,11 +536,39 @@ func (a *App) showSummary() {
 
 	for name, project := range a.Projects {
 		fmt.Printf("\nПроект \"%s\":\n", name)
-		var total int
+
+		// Общее время по проекту
+		var totalProject int
 		for _, entry := range project.Entries {
-			total += entry.TimeSpent
-			fmt.Printf("  %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+			totalProject += entry.TimeSpent
 		}
-		fmt.Printf("  Общее время: %v сек\n", total)
+
+		fmt.Printf("  Общее время: %v сек\n", totalProject)
+
+		// Если есть спринты, показываем статистику по ним
+		if project.Sprints != nil && len(project.Sprints) > 0 {
+			fmt.Println("  Спринты:")
+
+			sprints, _ := a.ProjectService.GetProjectSprints(a.Projects, name)
+			for _, sprint := range sprints {
+				var totalSprint int
+				for _, entry := range sprint.Entries {
+					totalSprint += entry.TimeSpent
+				}
+
+				status := ""
+				if sprint.IsActive {
+					status = " (Активный)"
+				}
+
+				fmt.Printf("    %s%s: %v сек\n", sprint.Name, status, totalSprint)
+			}
+		}
+
+		// Показываем записи проекта
+		fmt.Println("  Записи:")
+		for _, entry := range project.Entries {
+			fmt.Printf("    %s - %v сек: %s\n", entry.Date, entry.TimeSpent, entry.Description)
+		}
 	}
 }

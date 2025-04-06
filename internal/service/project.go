@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"time"
 
 	"github.com/MWT-proger/time-tracking/internal/domain"
 	"github.com/MWT-proger/time-tracking/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // ProjectService - сервис для работы с проектами
@@ -100,4 +103,107 @@ func (s *ProjectService) GetProjectNames(data map[string]*domain.Project) []stri
 		names = append(names, name)
 	}
 	return names
+}
+
+// CreateSprint - создание нового спринта проекта
+func (s *ProjectService) CreateSprint(data map[string]*domain.Project, projectName, sprintName, description string) error {
+	s.Logger.Infof("Создание спринта '%s' для проекта '%s'", sprintName, projectName)
+
+	// Проверка на существование проекта
+	project, exists := data[projectName]
+	if !exists {
+		s.Logger.Warnf("Попытка создать спринт для несуществующего проекта: %s", projectName)
+		return fmt.Errorf("проект '%s' не существует", projectName)
+	}
+
+	// Проверка на пустое имя спринта
+	if sprintName == "" {
+		s.Logger.Warn("Попытка создать спринт с пустым именем")
+		return fmt.Errorf("имя спринта не может быть пустым")
+	}
+
+	// Инициализация карты спринтов, если она не существует
+	if project.Sprints == nil {
+		project.Sprints = make(map[string]*domain.Sprint)
+	}
+
+	// Проверка на уникальность имени спринта
+	for _, sprint := range project.Sprints {
+		if sprint.Name == sprintName {
+			s.Logger.Warnf("Попытка создать спринт с существующим именем: %s", sprintName)
+			return fmt.Errorf("спринт с именем '%s' уже существует в проекте '%s'", sprintName, projectName)
+		}
+	}
+
+	// Создание уникального ID для спринта
+	sprintID := uuid.New().String()
+
+	// Создание нового спринта
+	project.Sprints[sprintID] = &domain.Sprint{
+		ID:          sprintID,
+		Name:        sprintName,
+		Description: description,
+		StartDate:   time.Now().Format("2006-01-02"),
+		Entries:     make(map[string]domain.TimeEntry),
+		IsActive:    true,
+	}
+
+	// Установка спринта как активного для проекта
+	project.ActiveSprint = sprintID
+
+	return s.SaveData(data)
+}
+
+// GetProjectSprints - получение списка спринтов проекта
+func (s *ProjectService) GetProjectSprints(data map[string]*domain.Project, projectName string) ([]*domain.Sprint, error) {
+	project, exists := data[projectName]
+	if !exists {
+		return nil, fmt.Errorf("проект '%s' не существует", projectName)
+	}
+
+	if project.Sprints == nil || len(project.Sprints) == 0 {
+		return []*domain.Sprint{}, nil
+	}
+
+	sprints := make([]*domain.Sprint, 0, len(project.Sprints))
+	for _, sprint := range project.Sprints {
+		sprints = append(sprints, sprint)
+	}
+
+	// Сортировка спринтов: сначала активные, затем по имени
+	sort.Slice(sprints, func(i, j int) bool {
+		if sprints[i].IsActive != sprints[j].IsActive {
+			return sprints[i].IsActive
+		}
+		return sprints[i].Name < sprints[j].Name
+	})
+
+	return sprints, nil
+}
+
+// SetActiveSprint - установка активного спринта для проекта
+func (s *ProjectService) SetActiveSprint(data map[string]*domain.Project, projectName, sprintID string) error {
+	project, exists := data[projectName]
+	if !exists {
+		return fmt.Errorf("проект '%s' не существует", projectName)
+	}
+
+	if project.Sprints == nil || len(project.Sprints) == 0 {
+		return fmt.Errorf("у проекта '%s' нет спринтов", projectName)
+	}
+
+	if _, exists := project.Sprints[sprintID]; !exists {
+		return fmt.Errorf("спринт с ID '%s' не существует в проекте '%s'", sprintID, projectName)
+	}
+
+	// Сначала деактивируем все спринты
+	for _, sprint := range project.Sprints {
+		sprint.IsActive = false
+	}
+
+	// Активируем выбранный спринт
+	project.Sprints[sprintID].IsActive = true
+	project.ActiveSprint = sprintID
+
+	return s.SaveData(data)
 }

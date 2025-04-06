@@ -8,6 +8,7 @@ import (
 	"github.com/MWT-proger/time-tracking/internal/domain"
 	"github.com/MWT-proger/time-tracking/pkg/config"
 	"github.com/MWT-proger/time-tracking/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // TrackingService - сервис для отслеживания времени
@@ -31,13 +32,24 @@ func (s *TrackingService) StartTracking(data map[string]*domain.Project, name st
 	s.Logger.Debugf("Попытка начать отслеживание для проекта: %s", name)
 	project, exists := data[name]
 	if !exists {
-		return fmt.Errorf("проект не найден")
+		return fmt.Errorf("проект '%s' не существует", name)
 	}
+
 	if project.StartTime != nil {
-		return fmt.Errorf("отслеживание уже запущено")
+		return fmt.Errorf("отслеживание для проекта '%s' уже запущено", name)
 	}
-	start := time.Now()
-	project.StartTime = &start
+
+	// Проверяем, есть ли у проекта активный этап
+	if project.Sprints != nil && len(project.Sprints) > 0 && project.ActiveSprint != "" {
+		if _, exists := project.Sprints[project.ActiveSprint]; !exists {
+			// Если активный этап не существует, сбрасываем его
+			project.ActiveSprint = ""
+		}
+	}
+
+	now := time.Now()
+	project.StartTime = &now
+
 	return s.ProjectService.SaveData(data)
 }
 
@@ -46,18 +58,41 @@ func (s *TrackingService) StopTracking(data map[string]*domain.Project, name str
 	s.Logger.Debugf("Попытка остановить отслеживание для проекта: %s", name)
 	project, exists := data[name]
 	if !exists || project.StartTime == nil {
-		return 0, fmt.Errorf("проект не найден или неактивен")
+		return 0, fmt.Errorf("отслеживание для проекта '%s' не запущено", name)
 	}
+
 	elapsed := time.Since(*project.StartTime)
-	project.Entries = append(project.Entries, domain.Entry{
-		TimeSpent:   int(elapsed.Seconds()),
-		Description: description,
+	seconds := int(elapsed.Seconds())
+
+	entry := domain.TimeEntry{
 		Date:        time.Now().Format("2006-01-02 15:04:05"),
-	})
+		TimeSpent:   seconds,
+		Description: description,
+	}
+
+	// Если у проекта есть активный этап, добавляем запись к нему
+	if project.Sprints != nil && project.ActiveSprint != "" {
+		if sprint, exists := project.Sprints[project.ActiveSprint]; exists {
+			if sprint.Entries == nil {
+				sprint.Entries = make(map[string]domain.TimeEntry)
+			}
+			entryID := uuid.New().String()
+			sprint.Entries[entryID] = entry
+		}
+	}
+
+	// В любом случае добавляем запись к проекту для обратной совместимости
+	if project.Entries == nil {
+		project.Entries = []domain.TimeEntry{}
+	}
+	project.Entries = append(project.Entries, entry)
+
 	project.StartTime = nil
+
 	if err := s.ProjectService.SaveData(data); err != nil {
 		return 0, err
 	}
+
 	return elapsed, nil
 }
 
