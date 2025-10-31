@@ -163,3 +163,5 @@ cython_debug/
 temp/*
 data.json
 time-tracker
+ttracker.desktop
+ttracker

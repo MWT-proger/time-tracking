@@ -18,8 +18,87 @@
 
 ## Установка
 
+### Зависимости
+
+Для работы приложения требуются следующие пакеты:
+
+```bash
+# Ubuntu/Debian
+sudo apt install libayatana-appindicator3-1
+
+# Fedora
+sudo dnf install libappindicator-gtk3
+
+# Arch Linux
+sudo pacman -S libappindicator-gtk3
+```
+
+### Установка через go install
+
+Перед установкой через go install убедитесь, что установлены необходимые зависимости:
+
+```bash
+# Ubuntu/Debian
+sudo apt install libayatana-appindicator3-dev
+
+# Fedora
+sudo dnf install libappindicator-gtk3-devel
+
+# Arch Linux
+sudo pacman -S libappindicator-gtk3
+```
+
+Затем установите приложение:
+
+```bash
+# Установка последней версии
+go install github.com/MWT-proger/time-tracking/cmd/time-tracker@latest
+
+# Установка конкретной версии
+go install github.com/MWT-proger/time-tracking/cmd/time-tracker@v0.9.0
+```
+
+### Сборка из исходников
+
 ```bash
 go get github.com/MWT-proger/time-tracking
+```
+
+### Установка через apt (Ubuntu/Debian)
+
+```bash
+# Добавление PPA репозитория
+sudo add-apt-repository ppa:your-username/your-ppa
+sudo apt update
+
+# Установка приложения
+sudo apt install ttracker
+```
+
+### Установка через .deb пакет
+
+```bash
+# Скачайте .deb файл с GitHub Releases
+wget https://github.com/MWT-proger/time-tracking/releases/download/v$(VERSION)/ttracker_$(VERSION)_amd64.deb
+
+# Установите пакет
+sudo dpkg -i ttracker_$(VERSION)_amd64.deb
+sudo apt-get install -f # Установка зависимостей, если необходимо
+```
+
+### Быстрая установка (с зависимостями)
+
+```bash
+# Клонирование репозитория
+git clone https://github.com/MWT-proger/time-tracking.git
+cd time-tracking
+
+# Установка зависимостей и сборка
+make install-deps
+make build
+
+# Установка приложения
+sudo make install
 ```
 
 ## Сборка
