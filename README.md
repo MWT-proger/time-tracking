@@ -192,6 +192,8 @@ time-tracking -notify-time 1800
 
 - [CHANGELOG.md](docs/CHANGELOG.md) - история изменений
 - [commit-rules.md](docs/commit-rules.md) - правила создания коммитов
+- [CHANGELOG-guidelines.md](docs/CHANGELOG-guidelines.md) - руководство по обновлению CHANGELOG
+- [issues.md](docs/issues.md) - найденные проблемы и недочеты
 
 ## Планы на будущее
 
