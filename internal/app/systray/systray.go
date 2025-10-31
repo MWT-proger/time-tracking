@@ -2,6 +2,7 @@ package systray
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/MWT-proger/time-tracking/pkg/logger"
@@ -10,6 +11,7 @@ import (
 
 // SystrayHandler - обработчик системного трея
 type SystrayHandler struct {
+	mu               sync.RWMutex
 	TrackedProject   string
 	TrackingStart    *time.Time
 	UpdateTrayTicker *time.Ticker
@@ -31,37 +33,85 @@ func NewSystrayHandler(
 
 // StartTrayTicker - запуск тикера обновления системного трея
 func (h *SystrayHandler) StartTrayTicker() {
+	h.mu.Lock()
 	if h.UpdateTrayTicker != nil {
+		h.mu.Unlock()
 		return
 	}
 	h.UpdateTrayTicker = time.NewTicker(1 * time.Second)
+	ticker := h.UpdateTrayTicker
+	h.mu.Unlock()
+
 	go func() {
-		for range h.UpdateTrayTicker.C {
-			if h.TrackingStart != nil {
-				elapsed := time.Since(*h.TrackingStart)
-				systray.SetTitle(fmt.Sprintf("%s: %v", h.TrackedProject, elapsed.Round(time.Second)))
+		defer func() {
+			if r := recover(); r != nil {
+				h.Logger.Errorf("Паника в горутине обновления таймера: %v", r)
+				h.mu.Lock()
+				if h.UpdateTrayTicker == ticker {
+					h.UpdateTrayTicker = nil
+				}
+				h.mu.Unlock()
 			}
+		}()
+
+		for range ticker.C {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						h.Logger.Errorf("Ошибка при обновлении заголовка таймера: %v", r)
+					}
+				}()
+
+				h.mu.RLock()
+				trackingStart := h.TrackingStart
+				trackedProject := h.TrackedProject
+				h.mu.RUnlock()
+
+				if trackingStart != nil {
+					elapsed := time.Since(*trackingStart)
+					title := fmt.Sprintf("%s: %v", trackedProject, elapsed.Round(time.Second))
+					systray.SetTitle(title)
+				}
+			}()
 		}
 	}()
 }
 
 // StopTrayTicker - остановка тикера обновления системного трея
 func (h *SystrayHandler) StopTrayTicker() {
+	h.mu.Lock()
 	if h.UpdateTrayTicker != nil {
 		h.UpdateTrayTicker.Stop()
 		h.UpdateTrayTicker = nil
 	}
+	h.mu.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			h.Logger.Errorf("Ошибка при установке заголовка таймера: %v", r)
+		}
+	}()
+
 	systray.SetTitle("Таймер")
 }
 
 // SetTracking - установка отслеживаемого проекта
 func (h *SystrayHandler) SetTracking(project string, start *time.Time) {
+	h.mu.Lock()
+	wasTracking := h.TrackingStart != nil
 	h.TrackedProject = project
 	h.TrackingStart = start
+	tickerExists := h.UpdateTrayTicker != nil
+	h.mu.Unlock()
+
 	if start != nil {
-		h.StartTrayTicker()
+		if !tickerExists {
+			h.StartTrayTicker()
+		}
 	} else {
-		h.StopTrayTicker()
+		if wasTracking {
+			h.StopTrayTicker()
+		}
 	}
 }
 
